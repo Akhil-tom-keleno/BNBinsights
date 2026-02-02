@@ -1,0 +1,35 @@
+# Dependencies
+node_modules
+package-lock.json
+
+# Build outputs
+dist
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Database
+server/database/*.db
+server/database/*.db-shm
+server/database/*.db-wal
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea

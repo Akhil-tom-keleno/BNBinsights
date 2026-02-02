@@ -92,14 +92,16 @@ router.post('/register', (req, res) => {
 });
 
 // Get current user
-router.get('/me', authenticateToken, (req: AuthRequest, res) => {
-  res.json({ user: req.user });
+router.get('/me', authenticateToken, (req, res) => {
+  const authReq = req as AuthRequest;
+  res.json({ user: authReq.user });
 });
 
 // Change password
-router.post('/change-password', authenticateToken, (req: AuthRequest, res) => {
+router.post('/change-password', authenticateToken, (req, res) => {
+  const authReq = req as AuthRequest;
   const { currentPassword, newPassword } = req.body;
-  const userId = req.user!.id;
+  const userId = authReq.user!.id;
 
   try {
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;

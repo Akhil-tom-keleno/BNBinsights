@@ -20,7 +20,7 @@ export function generateToken(user: { id: number; email: string; role: string; n
   );
 }
 
-export function authenticateToken(req: AuthRequest, res: Response, next: NextFunction): void {
+export function authenticateToken(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -31,20 +31,21 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
-    req.user = decoded;
+    (req as AuthRequest).user = decoded;
     next();
   } catch (error) {
     res.status(403).json({ error: 'Invalid or expired token' });
   }
 }
 
-export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction): void {
-  if (!req.user) {
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
     res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
-  if (req.user.role !== 'admin') {
+  if (authReq.user.role !== 'admin') {
     res.status(403).json({ error: 'Admin access required' });
     return;
   }
@@ -52,13 +53,14 @@ export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction
   next();
 }
 
-export function requireManager(req: AuthRequest, res: Response, next: NextFunction): void {
-  if (!req.user) {
+export function requireManager(req: Request, res: Response, next: NextFunction): void {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
     res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
-  if (req.user.role !== 'manager' && req.user.role !== 'admin') {
+  if (authReq.user.role !== 'manager' && authReq.user.role !== 'admin') {
     res.status(403).json({ error: 'Manager access required' });
     return;
   }

@@ -34,7 +34,7 @@ router.get('/', (req, res) => {
   query += ' ORDER BY m.is_featured DESC, m.rating DESC';
 
   try {
-    const managers = db.prepare(query).all(...params);
+    const managers = db.prepare(query).all(...params) as any[];
     res.json(managers.map(m => ({
       ...m,
       services: m.services ? JSON.parse(m.services) : []
@@ -78,7 +78,7 @@ router.get('/:slug', (req, res) => {
 });
 
 // Create manager (admin only)
-router.post('/', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
+router.post('/', authenticateToken, requireAdmin, (req, res) => {
   const {
     name,
     slug,
@@ -119,9 +119,10 @@ router.post('/', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
 });
 
 // Update manager (admin or claimed manager)
-router.put('/:id', authenticateToken, (req: AuthRequest, res) => {
+router.put('/:id', authenticateToken, (req, res) => {
+  const authReq = req as AuthRequest;
   const { id } = req.params;
-  const user = req.user!;
+  const user = authReq.user!;
 
   // Check if user has permission
   const manager = db.prepare('SELECT * FROM managers WHERE id = ?').get(id) as any;
@@ -172,7 +173,7 @@ router.put('/:id', authenticateToken, (req: AuthRequest, res) => {
 });
 
 // Delete manager (admin only)
-router.delete('/:id', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, (req, res) => {
   const { id } = req.params;
 
   try {
@@ -185,9 +186,10 @@ router.delete('/:id', authenticateToken, requireAdmin, (req: AuthRequest, res) =
 });
 
 // Claim manager listing
-router.post('/:id/claim', authenticateToken, requireManager, (req: AuthRequest, res) => {
+router.post('/:id/claim', authenticateToken, requireManager, (req, res) => {
+  const authReq = req as AuthRequest;
   const { id } = req.params;
-  const userId = req.user!.id;
+  const userId = authReq.user!.id;
 
   try {
     const manager = db.prepare('SELECT * FROM managers WHERE id = ?').get(id) as any;

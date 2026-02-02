@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import bcrypt from 'bcryptjs';
 
 const DB_DIR = path.join(process.cwd(), 'server', 'database');
 const DB_PATH = path.join(DB_DIR, 'bnbinsights.db');
@@ -116,7 +117,6 @@ export function initDatabase() {
   // Insert default admin user
   const adminExists = db.prepare('SELECT * FROM users WHERE email = ?').get('admin@bnbinsights.com');
   if (!adminExists) {
-    const bcrypt = require('bcryptjs');
     const hashedPassword = bcrypt.hashSync('admin123', 10);
     db.prepare(`
       INSERT INTO users (email, password, role, name) 

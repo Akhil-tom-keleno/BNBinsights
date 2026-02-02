@@ -32,7 +32,7 @@ router.get('/', (req, res) => {
   params.push(parseInt(limit as string), parseInt(offset as string));
 
   try {
-    const posts = db.prepare(query).all(...params);
+    const posts = db.prepare(query).all(...params) as any[];
     res.json(posts.map(p => ({
       ...p,
       tags: p.tags ? JSON.parse(p.tags) : []
@@ -70,7 +70,8 @@ router.get('/:slug', (req, res) => {
 });
 
 // Create blog post (admin only)
-router.post('/', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
+router.post('/', authenticateToken, requireAdmin, (req, res) => {
+  const authReq = req as AuthRequest;
   const {
     title,
     slug,
@@ -92,7 +93,7 @@ router.post('/', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
       excerpt,
       content,
       featured_image,
-      req.user!.id,
+      authReq.user!.id,
       category,
       tags ? JSON.stringify(tags) : '[]',
       is_published ? 1 : 0,
@@ -107,7 +108,7 @@ router.post('/', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
 });
 
 // Update blog post (admin only)
-router.put('/:id', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
+router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
   const { id } = req.params;
 
   const updates: string[] = [];
@@ -146,7 +147,7 @@ router.put('/:id', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
 });
 
 // Delete blog post (admin only)
-router.delete('/:id', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, (req, res) => {
   const { id } = req.params;
 
   try {

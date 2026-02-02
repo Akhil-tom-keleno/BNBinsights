@@ -1,0 +1,207 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 14% 97%;
+    --foreground: 220 30% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 30% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 30% 8%;
+    --primary: 220 30% 8%;
+    --primary-foreground: 220 14% 97%;
+    --secondary: 220 14% 94%;
+    --secondary-foreground: 220 30% 8%;
+    --muted: 220 14% 94%;
+    --muted-foreground: 220 10% 45%;
+    --accent: 43 65% 53%;
+    --accent-foreground: 220 30% 8%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 14% 88%;
+    --input: 220 14% 88%;
+    --ring: 43 65% 53%;
+    --radius: 1.125rem;
+    
+    --color-bg-primary: #F6F7F9;
+    --color-bg-dark: #0B0F17;
+    --color-accent: #D4A23F;
+    --color-text-primary: #0B0F17;
+    --color-text-secondary: #6B7280;
+    --color-text-light: #F6F7F9;
+    --color-text-muted-dark: #A7B1C2;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    scroll-behavior: auto;
+  }
+  
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    overflow-x: hidden;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: -0.02em;
+    line-height: 0.95;
+  }
+  
+  .font-mono {
+    font-family: 'IBM Plex Mono', monospace;
+  }
+}
+
+@layer components {
+  .section-pinned {
+    height: 100vh;
+    width: 100vw;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #D4A23F 0%, #E8C568 50%, #D4A23F 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .card-shadow {
+    box-shadow: 0 18px 40px rgba(11, 15, 23, 0.14);
+  }
+  
+  .card-shadow-lg {
+    box-shadow: 0 22px 50px rgba(11, 15, 23, 0.16);
+  }
+  
+  .grain-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.04;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  }
+  
+  .btn-gold {
+    background-color: var(--color-accent);
+    color: var(--color-text-primary);
+    font-weight: 600;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .btn-gold:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 24px rgba(212, 162, 63, 0.35);
+  }
+  
+  .btn-gold:active {
+    transform: scale(0.98);
+  }
+  
+  .link-underline {
+    position: relative;
+  }
+  
+  .link-underline::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: var(--color-accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+  }
+  
+  .link-underline:hover::after {
+    transform: scaleX(1);
+  }
+  
+  .card-radius-lg {
+    border-radius: 28px;
+  }
+  
+  .card-radius-md {
+    border-radius: 18px;
+  }
+  
+  .card-radius-sm {
+    border-radius: 12px;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .animation-paused {
+    animation-play-state: paused;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(11, 15, 23, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(11, 15, 23, 0.3);
+}
+
+/* Floating animation for cards */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Pulse animation for overlays */
+@keyframes pulse-overlay {
+  0%, 100% {
+    opacity: 0.62;
+  }
+  50% {
+    opacity: 0.68;
+  }
+}
+
+.animate-pulse-overlay {
+  animation: pulse-overlay 5s ease-in-out infinite;
+}

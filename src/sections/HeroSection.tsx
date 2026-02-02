@@ -16,7 +16,7 @@ export default function HeroSection() {
 
   const loadLocations = async () => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const API_URL = import.meta.env.VITE_API_URL || '/api';
       const response = await fetch(`${API_URL}/locations`);
       if (response.ok) {
         const data = await response.json();

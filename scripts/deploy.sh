@@ -6,7 +6,7 @@
 
 set -e
 
-APP_NAME="keleno-app"
+APP_NAME="bnb-insights"
 COMPOSE_FILE="docker-compose.yml"
 BACKUP_DIR="./backups"
 
@@ -125,17 +125,31 @@ backup() {
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
     BACKUP_FILE="$BACKUP_DIR/bnbinsights_$TIMESTAMP.db"
     
+    # Get the actual volume name (it depends on directory name)
+    VOLUME_NAME=$(docker volume ls --format "{{.Name}}" | grep db_data | head -1)
+    
+    if [ -z "$VOLUME_NAME" ]; then
+        log_error "Database volume not found!"
+        log_warn "Skipping backup..."
+        return 0
+    fi
+    
+    log_info "Using volume: $VOLUME_NAME"
+    
     # Copy database from Docker volume
     docker run --rm \
-        -v keleno-app_db_data:/data \
+        -v $VOLUME_NAME:/data \
         -v $(pwd)/$BACKUP_DIR:/backup \
         alpine \
-        cp /data/bnbinsights.db /backup/bnbinsights_$TIMESTAMP.db
+        cp /data/bnbinsights.db /backup/bnbinsights_$TIMESTAMP.db 2>/dev/null || {
+            log_warn "Database file not found in volume, skipping backup..."
+            return 0
+        }
     
     log_info "Backup created: $BACKUP_FILE"
     
     # Keep only last 7 backups
-    ls -t $BACKUP_DIR/bnbinsights_*.db | tail -n +8 | xargs -r rm
+    ls -t $BACKUP_DIR/bnbinsights_*.db 2>/dev/null | tail -n +8 | xargs -r rm
     log_info "Old backups cleaned up (keeping last 7)"
 }
 

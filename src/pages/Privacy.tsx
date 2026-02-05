@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import Navigation from '@/sections/Navigation';
+import SimpleFooter from '@/sections/SimpleFooter';
 
 export default function Privacy() {
   return (
@@ -105,6 +106,8 @@ export default function Privacy() {
           </div>
         </div>
       </div>
+      
+      <SimpleFooter />
     </div>
   );
 }

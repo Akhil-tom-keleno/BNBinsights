@@ -1,20 +1,13 @@
-import { useRef, useLayoutEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-
-gsap.registerPlugin(ScrollTrigger);
 
 const footerLinks = {
   browse: [
     { label: 'Markets', href: '/locations' },
     { label: 'Managers', href: '/managers' },
-    { label: 'Locations', href: '/locations' },
   ],
   company: [
-    { label: 'About', href: '/blog' },
-    { label: 'Careers', href: '/blog' },
-    { label: 'Contact', href: '/list-company' },
+    { label: 'About', href: '/about' },
+    { label: 'Contact', href: '/contact' },
   ],
   resources: [
     { label: 'Blog', href: '/blog' },
@@ -22,91 +15,11 @@ const footerLinks = {
 };
 
 export default function ClosingFooter() {
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const headlineRef = useRef<HTMLHeadingElement>(null);
-  const sublineRef = useRef<HTMLParagraphElement>(null);
-  const ctaRef = useRef<HTMLAnchorElement>(null);
-  const footerRef = useRef<HTMLDivElement>(null);
-
-  useLayoutEffect(() => {
-    const section = sectionRef.current;
-    if (!section) return;
-
-    const ctx = gsap.context(() => {
-      gsap.fromTo(headlineRef.current,
-        { y: '8vh', opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.8,
-          ease: 'power3.out',
-          scrollTrigger: {
-            trigger: headlineRef.current,
-            start: 'top 80%',
-            toggleActions: 'play none none reverse'
-          }
-        }
-      );
-
-      gsap.fromTo(sublineRef.current,
-        { y: '6vh', opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.8,
-          ease: 'power3.out',
-          scrollTrigger: {
-            trigger: sublineRef.current,
-            start: 'top 80%',
-            toggleActions: 'play none none reverse'
-          }
-        }
-      );
-
-      gsap.fromTo(ctaRef.current,
-        { scale: 0.96, opacity: 0 },
-        {
-          scale: 1,
-          opacity: 1,
-          duration: 0.6,
-          ease: 'power3.out',
-          scrollTrigger: {
-            trigger: ctaRef.current,
-            start: 'top 85%',
-            toggleActions: 'play none none reverse'
-          }
-        }
-      );
-
-      gsap.fromTo(footerRef.current,
-        { y: '6vh', opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.8,
-          ease: 'power3.out',
-          scrollTrigger: {
-            trigger: footerRef.current,
-            start: 'top 90%',
-            toggleActions: 'play none none reverse'
-          }
-        }
-      );
-
-    }, section);
-
-    return () => ctx.revert();
-  }, []);
-
   return (
-    <section 
-      ref={sectionRef}
-      className="bg-[#F6F7F9] pt-20 lg:pt-32"
-    >
+    <section className="bg-[#F6F7F9] pt-20 lg:pt-32">
       {/* Closing CTA */}
       <div className="w-full px-6 lg:px-[6vw] text-center pb-20 lg:pb-32">
         <h2 
-          ref={headlineRef}
           className="font-['Space_Grotesk'] font-bold text-[#0B0F17] leading-[0.95] mx-auto"
           style={{ fontSize: 'clamp(32px, 4vw, 56px)', maxWidth: '72vw' }}
         >
@@ -114,7 +27,6 @@ export default function ClosingFooter() {
         </h2>
         
         <p 
-          ref={sublineRef}
           className="text-[#6B7280] mt-6 lg:mt-8 mx-auto"
           style={{ fontSize: 'clamp(15px, 1.5vw, 18px)', maxWidth: '48vw' }}
         >
@@ -123,7 +35,6 @@ export default function ClosingFooter() {
         
         <Link 
           to="/get-started"
-          ref={ctaRef}
           className="inline-block btn-gold mt-8 lg:mt-10 px-8 py-4 rounded-2xl font-semibold text-base"
         >
           Get started now
@@ -131,10 +42,7 @@ export default function ClosingFooter() {
       </div>
 
       {/* Footer */}
-      <footer 
-        ref={footerRef}
-        className="border-t border-[#0B0F17]/8 bg-[#F6F7F9]"
-      >
+      <footer className="border-t border-[#0B0F17]/8 bg-[#F6F7F9]">
         <div className="w-full px-6 lg:px-[6vw] py-12 lg:py-16">
           {/* Top Row */}
           <div className="flex flex-col lg:flex-row lg:justify-between gap-10 lg:gap-16">

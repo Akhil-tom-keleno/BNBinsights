@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import Navigation from '@/sections/Navigation';
+import SimpleFooter from '@/sections/SimpleFooter';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -75,7 +76,7 @@ export default function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-12 pr-4 py-3 rounded-xl border border-[#0B0F17]/10 focus:border-[#D4A23F] focus:outline-none"
-                    placeholder="admin@bnbinsights.com"
+                    placeholder="you@company.com"
                   />
                 </div>
               </div>
@@ -105,6 +106,13 @@ export default function Login() {
                 </div>
               </div>
 
+              {/* Forgot Password */}
+              <div className="flex items-center justify-end">
+                <Link to="/forgot-password" className="text-sm text-[#D4A23F] hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
+
               {/* Submit */}
               <button
                 type="submit"
@@ -122,17 +130,32 @@ export default function Login() {
               </button>
             </form>
 
-            {/* Demo Credentials */}
-            <div className="mt-8 p-4 bg-[#F6F7F9] rounded-xl">
-              <p className="text-sm font-medium text-[#0B0F17] mb-2">Demo Credentials</p>
-              <p className="text-sm text-[#6B7280]">
-                <strong>Admin:</strong> admin@bnbinsights.com<br />
-                <strong>Password:</strong> admin123
-              </p>
+            {/* Divider */}
+            <div className="relative my-8">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[#0B0F17]/10"></div>
+              </div>
+              <div className="relative flex justify-center">
+                <span className="px-4 bg-white text-sm text-[#6B7280]">Or</span>
+              </div>
+            </div>
+
+            {/* Register Link */}
+            <div className="text-center">
+              <p className="text-[#6B7280] mb-2">Don't have an account?</p>
+              <Link
+                to="/list-company"
+                className="inline-flex items-center gap-2 text-[#D4A23F] font-semibold hover:underline"
+              >
+                List your company
+                <ArrowLeft className="rotate-180" size={16} />
+              </Link>
             </div>
           </div>
         </div>
       </div>
+      
+      <SimpleFooter />
     </div>
   );
 }

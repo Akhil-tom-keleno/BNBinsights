@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Star, MapPin, Phone, Mail, Globe, Calendar, Check, MessageSquare, Users, Instagram, Linkedin, Home } from 'lucide-react';
+import { Star, MapPin, Phone, Mail, Globe, Calendar, Check, MessageSquare, Users, Instagram, Linkedin, Home, Building2 } from 'lucide-react';
 import type { Manager } from '@/types';
-import { useManagers } from '@/hooks/useApi';
 import Navigation from '@/sections/Navigation';
+import SimpleFooter from '@/sections/SimpleFooter';
 
 interface SocialLinks {
   website?: string;
@@ -22,7 +22,9 @@ export default function ManagerDetail() {
   const [manager, setManager] = useState<Manager | null>(null);
   const [socialLinks, setSocialLinks] = useState<SocialLinks>({});
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const { getManager, isLoading } = useManagers();
+  const [isLoading, setIsLoading] = useState(true);
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
   useEffect(() => {
     if (slug) {
@@ -31,28 +33,33 @@ export default function ManagerDetail() {
   }, [slug]);
 
   const loadManager = async (managerSlug: string) => {
-    const data = await getManager(managerSlug);
-    if (data) {
-      const managerData = data as Manager & { social_links?: string; team_members?: string };
-      setManager(managerData);
-      
-      // Parse social links
-      if (managerData.social_links) {
-        try {
-          setSocialLinks(JSON.parse(managerData.social_links));
-        } catch (e) {
-          setSocialLinks({});
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/managers/${managerSlug}`);
+      if (response.ok) {
+        const data = await response.json();
+        setManager(data);
+        
+        if (data.social_links) {
+          try {
+            setSocialLinks(JSON.parse(data.social_links));
+          } catch (e) {
+            setSocialLinks({});
+          }
+        }
+        
+        if (data.team_members) {
+          try {
+            setTeamMembers(JSON.parse(data.team_members));
+          } catch (e) {
+            setTeamMembers([]);
+          }
         }
       }
-      
-      // Parse team members
-      if (managerData.team_members) {
-        try {
-          setTeamMembers(JSON.parse(managerData.team_members));
-        } catch (e) {
-          setTeamMembers([]);
-        }
-      }
+    } catch (error) {
+      console.error('Failed to load manager:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -100,23 +107,6 @@ export default function ManagerDetail() {
       {/* Content */}
       <div className="w-full px-6 lg:px-[6vw] -mt-20 relative z-10 pb-16">
         <div className="max-w-5xl mx-auto">
-          {/* Breadcrumb */}
-          <nav className="flex items-center gap-2 text-sm text-white/70 mb-6">
-            <Link to="/" className="hover:text-[#D4A23F]">Home</Link>
-            <span>/</span>
-            <Link to="/managers" className="hover:text-[#D4A23F]">Managers</Link>
-            <span>/</span>
-            {manager.location_slug && (
-              <>
-                <Link to={`/location/${manager.location_slug}`} className="hover:text-[#D4A23F]">
-                  {manager.location_name}
-                </Link>
-                <span>/</span>
-              </>
-            )}
-            <span className="text-white">{manager.name}</span>
-          </nav>
-
           {/* Header Card */}
           <div className="bg-white rounded-2xl p-6 lg:p-8 card-shadow-lg mb-8">
             <div className="flex flex-col lg:flex-row lg:items-start gap-6">
@@ -354,7 +344,7 @@ export default function ManagerDetail() {
                   )}
                   {(manager as any).listings_count > 0 && (
                     <div className="flex items-center gap-3">
-                      <Home size={18} className="text-[#D4A23F]" />
+                      <Building2 size={18} className="text-[#D4A23F]" />
                       <div>
                         <p className="text-sm text-[#6B7280]">Properties Managed</p>
                         <p className="font-medium text-[#0B0F17]">{(manager as any).listings_count}</p>
@@ -392,7 +382,7 @@ export default function ManagerDetail() {
                     Claim this listing to update your information and respond to reviews.
                   </p>
                   <Link 
-                    to="/login"
+                    to={`/claim-listing/${manager.slug}`}
                     className="block w-full py-3 bg-[#D4A23F] text-white text-center font-semibold rounded-xl hover:bg-[#B88A2F] transition-colors"
                   >
                     Claim Listing
@@ -403,6 +393,8 @@ export default function ManagerDetail() {
           </div>
         </div>
       </div>
+      
+      <SimpleFooter />
     </div>
   );
 }

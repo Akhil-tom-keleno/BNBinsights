@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, User, Mail, Phone, MapPin, Home, Calendar, MessageSquare, CheckCircle } from 'lucide-react';
 import Navigation from '@/sections/Navigation';
+import SimpleFooter from '@/sections/SimpleFooter';
 
 export default function GetStarted() {
   const [formData, setFormData] = useState({
@@ -67,6 +68,7 @@ export default function GetStarted() {
             </Link>
           </div>
         </div>
+        <SimpleFooter />
       </div>
     );
   }
@@ -278,6 +280,8 @@ export default function GetStarted() {
           </form>
         </div>
       </div>
+      
+      <SimpleFooter />
     </div>
   );
 }

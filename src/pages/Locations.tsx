@@ -4,6 +4,7 @@ import { ArrowRight, Building2, TrendingUp, Calendar, MapPin } from 'lucide-reac
 import type { Location } from '@/types';
 import { useLocations } from '@/hooks/useApi';
 import Navigation from '@/sections/Navigation';
+import SimpleFooter from '@/sections/SimpleFooter';
 
 export default function Locations() {
   const [locations, setLocations] = useState<Location[]>([]);
@@ -103,6 +104,8 @@ export default function Locations() {
           </div>
         )}
       </div>
+      
+      <SimpleFooter />
     </div>
   );
 }

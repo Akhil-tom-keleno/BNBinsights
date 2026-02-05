@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js';
 import managerRoutes from './routes/managers.js';
 import locationRoutes from './routes/locations.js';
 import blogRoutes from './routes/blog.js';
+import contentRoutes from './routes/content.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,6 +30,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/managers', managerRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/blog', blogRoutes);
+app.use('/api/content', contentRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

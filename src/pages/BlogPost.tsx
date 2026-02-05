@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, User, Tag, Share2, Twitter, Linkedin, Facebook } from 'lucide-react';
+import { Calendar, User, Tag, Share2, Twitter, Linkedin, Facebook, ArrowLeft } from 'lucide-react';
 import type { BlogPost as BlogPostType } from '@/types';
-import { useBlog } from '@/hooks/useApi';
 import Navigation from '@/sections/Navigation';
+import SimpleFooter from '@/sections/SimpleFooter';
 
 export default function BlogPost() {
   const { slug } = useParams<{ slug: string }>();
   const [post, setPost] = useState<BlogPostType | null>(null);
-  const { getPost, isLoading } = useBlog();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (slug) {
@@ -17,8 +17,18 @@ export default function BlogPost() {
   }, [slug]);
 
   const loadPost = async (postSlug: string) => {
-    const data = await getPost(postSlug);
-    if (data) setPost(data as BlogPostType);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${API_URL}/blog/${postSlug}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPost(data);
+      }
+    } catch (error) {
+      console.error('Failed to load post:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -27,6 +37,13 @@ export default function BlogPost() {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  // Generate a placeholder image based on the post title
+  const getPlaceholderImage = (title: string) => {
+    const colors = ['D4A23F', '0B0F17', '2D3748', '4A5568'];
+    const color = colors[title.length % colors.length];
+    return `https://placehold.co/1200x600/${color}/FFFFFF?text=${encodeURIComponent(title.substring(0, 30))}`;
   };
 
   if (isLoading) {
@@ -54,6 +71,10 @@ export default function BlogPost() {
     );
   }
 
+  const featuredImage = post.featured_image && post.featured_image !== '/blog-1.jpg' && post.featured_image !== '/blog-2.jpg' && post.featured_image !== '/blog-3.jpg' 
+    ? post.featured_image 
+    : getPlaceholderImage(post.title);
+
   return (
     <div className="min-h-screen bg-[#F6F7F9]">
       <Navigation />
@@ -61,15 +82,6 @@ export default function BlogPost() {
       {/* Hero */}
       <div className="bg-[#0B0F17] pt-24 pb-16">
         <div className="w-full px-6 lg:px-[6vw] max-w-4xl mx-auto">
-          {/* Breadcrumb */}
-          <nav className="flex items-center gap-2 text-sm text-[#A7B1C2] mb-6">
-            <Link to="/" className="hover:text-[#D4A23F]">Home</Link>
-            <ArrowLeft size={14} className="rotate-180" />
-            <Link to="/blog" className="hover:text-[#D4A23F]">Blog</Link>
-            <ArrowLeft size={14} className="rotate-180" />
-            <span className="text-white truncate">{post.title}</span>
-          </nav>
-          
           {/* Category */}
           {post.category && (
             <span className="inline-block px-3 py-1 bg-[#D4A23F]/20 text-[#D4A23F] text-sm font-semibold rounded-full mb-4">
@@ -101,17 +113,18 @@ export default function BlogPost() {
       </div>
 
       {/* Featured Image */}
-      {post.featured_image && (
-        <div className="w-full max-w-5xl mx-auto px-6 -mt-8">
-          <div className="rounded-2xl overflow-hidden card-shadow-lg">
-            <img
-              src={post.featured_image}
-              alt={post.title}
-              className="w-full h-64 lg:h-96 object-cover"
-            />
-          </div>
+      <div className="w-full max-w-5xl mx-auto px-6 -mt-8">
+        <div className="rounded-2xl overflow-hidden card-shadow-lg">
+          <img
+            src={featuredImage}
+            alt={post.title}
+            className="w-full h-64 lg:h-96 object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = getPlaceholderImage(post.title);
+            }}
+          />
         </div>
-      )}
+      </div>
 
       {/* Content */}
       <article className="w-full px-6 lg:px-[6vw] py-12">
@@ -184,6 +197,8 @@ export default function BlogPost() {
           </Link>
         </div>
       </div>
+      
+      <SimpleFooter />
     </div>
   );
 }

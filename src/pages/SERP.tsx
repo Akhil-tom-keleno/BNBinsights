@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { Star, MapPin, Phone, Mail, ArrowRight, Search } from 'lucide-react';
+import { Star, MapPin, Phone, Mail, Search } from 'lucide-react';
 import type { Manager, Location } from '@/types';
-import { useManagers, useLocations } from '@/hooks/useApi';
 import Navigation from '@/sections/Navigation';
+import SimpleFooter from '@/sections/SimpleFooter';
 
 export default function SERP() {
   const { locationSlug } = useParams<{ locationSlug?: string }>();
@@ -15,9 +15,9 @@ export default function SERP() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [searchInput, setSearchInput] = useState(searchQuery);
   const [selectedLocation, setSelectedLocation] = useState(locationSlug || '');
-  
-  const { getManagers, isLoading: managersLoading } = useManagers();
-  const { getLocations, getLocation } = useLocations();
+  const [isLoading, setIsLoading] = useState(true);
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
   useEffect(() => {
     loadLocations();
@@ -32,25 +32,50 @@ export default function SERP() {
   }, [locationSlug, searchQuery]);
 
   const loadLocations = async () => {
-    const data = await getLocations();
-    if (data) setLocations(data as Location[]);
+    try {
+      const response = await fetch(`${API_URL}/locations`);
+      if (response.ok) {
+        const data = await response.json();
+        setLocations(data);
+      }
+    } catch (error) {
+      console.error('Failed to load locations:', error);
+    }
   };
 
   const loadLocationData = async (slug: string) => {
-    const data = await getLocation(slug);
-    if (data) {
-      const locData = data as Location & { managers?: Manager[] };
-      setLocation(locData);
-      setManagers(locData.managers || []);
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/locations/${slug}`);
+      if (response.ok) {
+        const data = await response.json();
+        setLocation(data);
+        setManagers(data.managers || []);
+      }
+    } catch (error) {
+      console.error('Failed to load location:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const loadManagers = async () => {
-    const data = await getManagers({ 
-      search: searchQuery || undefined,
-      location: selectedLocation || undefined 
-    });
-    if (data) setManagers(data as Manager[]);
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchQuery) params.append('search', searchQuery);
+      if (selectedLocation) params.append('location', selectedLocation);
+      
+      const response = await fetch(`${API_URL}/managers?${params.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        setManagers(data);
+      }
+    } catch (error) {
+      console.error('Failed to load managers:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -71,30 +96,6 @@ export default function SERP() {
     }
   };
 
-  const getBreadcrumb = () => {
-    if (location) {
-      return (
-        <nav className="flex items-center gap-2 text-sm text-[#6B7280] mb-6">
-          <Link to="/" className="hover:text-[#D4A23F]">Home</Link>
-          <ArrowRight size={14} />
-          <Link to="/locations" className="hover:text-[#D4A23F]">Locations</Link>
-          <ArrowRight size={14} />
-          <span className="text-[#0B0F17]">{location.name}</span>
-        </nav>
-      );
-    }
-    if (searchQuery) {
-      return (
-        <nav className="flex items-center gap-2 text-sm text-[#6B7280] mb-6">
-          <Link to="/" className="hover:text-[#D4A23F]">Home</Link>
-          <ArrowRight size={14} />
-          <span className="text-[#0B0F17]">Search: "{searchQuery}"</span>
-        </nav>
-      );
-    }
-    return null;
-  };
-
   return (
     <div className="min-h-screen bg-[#F6F7F9]">
       <Navigation />
@@ -102,15 +103,13 @@ export default function SERP() {
       {/* Header */}
       <div className="bg-[#0B0F17] pt-24 pb-12">
         <div className="w-full px-6 lg:px-[6vw]">
-          {getBreadcrumb()}
-          
           <h1 className="font-['Space_Grotesk'] font-bold text-white text-3xl lg:text-5xl mb-4">
             {location ? `Property Managers in ${location.name}` : 'Property Managers'}
           </h1>
           
           {location && (
             <p className="text-[#A7B1C2] max-w-2xl">
-              {location.properties_count.toLocaleString()} properties • AED {location.avg_daily_rate} avg daily rate • {location.occupancy_rate}% occupancy
+              {location.properties_count?.toLocaleString()} properties • AED {location.avg_daily_rate} avg daily rate • {location.occupancy_rate}% occupancy
             </p>
           )}
           
@@ -158,7 +157,7 @@ export default function SERP() {
 
       {/* Results */}
       <div className="w-full px-6 lg:px-[6vw] py-8">
-        {managersLoading ? (
+        {isLoading ? (
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#D4A23F]"></div>
           </div>
@@ -213,11 +212,11 @@ export default function SERP() {
                     
                     {/* Rating */}
                     <div className="flex items-center gap-2 mt-2">
-                      <div className="flex items-center gap-0.5">
+                      <div className="flex items-center gap-1">
                         {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            size={14}
+                          <Star 
+                            key={i} 
+                            size={14} 
                             className={i < Math.floor(manager.rating) ? 'text-[#D4A23F] fill-[#D4A23F]' : 'text-[#E5E7EB]'}
                           />
                         ))}
@@ -267,6 +266,8 @@ export default function SERP() {
           </div>
         )}
       </div>
+      
+      <SimpleFooter />
     </div>
   );
 }

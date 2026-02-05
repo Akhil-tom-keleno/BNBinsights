@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import Navigation from '@/sections/Navigation';
+import SimpleFooter from '@/sections/SimpleFooter';
 
 export default function Terms() {
   return (
@@ -137,6 +138,8 @@ export default function Terms() {
           </div>
         </div>
       </div>
+      
+      <SimpleFooter />
     </div>
   );
 }

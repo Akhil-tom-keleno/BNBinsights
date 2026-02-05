@@ -4,6 +4,7 @@ import { ArrowRight, Calendar, User, Search, Tag } from 'lucide-react';
 import type { BlogPost } from '@/types';
 import { useBlog } from '@/hooks/useApi';
 import Navigation from '@/sections/Navigation';
+import SimpleFooter from '@/sections/SimpleFooter';
 
 export default function Blog() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -192,6 +193,8 @@ export default function Blog() {
           </div>
         )}
       </div>
+      
+      <SimpleFooter />
     </div>
   );
 }

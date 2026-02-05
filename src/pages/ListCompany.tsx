@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Building2, Mail, Phone, User, Globe, Instagram, Linkedin, Send } from 'lucide-react';
 import Navigation from '@/sections/Navigation';
+import SimpleFooter from '@/sections/SimpleFooter';
 
 export default function ListCompany() {
   const [formData, setFormData] = useState({
@@ -63,6 +64,7 @@ export default function ListCompany() {
             </Link>
           </div>
         </div>
+        <SimpleFooter />
       </div>
     );
   }
@@ -303,6 +305,8 @@ export default function ListCompany() {
           </form>
         </div>
       </div>
+      
+      <SimpleFooter />
     </div>
   );
 }

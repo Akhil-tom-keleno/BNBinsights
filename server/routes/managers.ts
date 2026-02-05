@@ -1,8 +1,12 @@
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import db from '../database/db.js';
 import { authenticateToken, requireAdmin, requireManager, AuthRequest } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// Pending claims storage (in production, use database table)
+const pendingClaims: Map<string, any> = new Map();
 
 // Get all managers (public)
 router.get('/', (req, res) => {
@@ -34,7 +38,7 @@ router.get('/', (req, res) => {
   query += ' ORDER BY m.is_featured DESC, m.rating DESC';
 
   try {
-    const managers = db.prepare(query).all(...params) as any[];
+    const managers = db.prepare(query).all(...params);
     res.json(managers.map(m => ({
       ...m,
       services: m.services ? JSON.parse(m.services) : []
@@ -78,7 +82,7 @@ router.get('/:slug', (req, res) => {
 });
 
 // Create manager (admin only)
-router.post('/', authenticateToken, requireAdmin, (req, res) => {
+router.post('/', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
   const {
     name,
     slug,
@@ -119,10 +123,9 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
 });
 
 // Update manager (admin or claimed manager)
-router.put('/:id', authenticateToken, (req, res) => {
-  const authReq = req as AuthRequest;
+router.put('/:id', authenticateToken, (req: AuthRequest, res) => {
   const { id } = req.params;
-  const user = authReq.user!;
+  const user = req.user!;
 
   // Check if user has permission
   const manager = db.prepare('SELECT * FROM managers WHERE id = ?').get(id) as any;
@@ -173,7 +176,7 @@ router.put('/:id', authenticateToken, (req, res) => {
 });
 
 // Delete manager (admin only)
-router.delete('/:id', authenticateToken, requireAdmin, (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
   const { id } = req.params;
 
   try {
@@ -186,10 +189,9 @@ router.delete('/:id', authenticateToken, requireAdmin, (req, res) => {
 });
 
 // Claim manager listing
-router.post('/:id/claim', authenticateToken, requireManager, (req, res) => {
-  const authReq = req as AuthRequest;
+router.post('/:id/claim', authenticateToken, requireManager, (req: AuthRequest, res) => {
   const { id } = req.params;
-  const userId = authReq.user!.id;
+  const userId = req.user!.id;
 
   try {
     const manager = db.prepare('SELECT * FROM managers WHERE id = ?').get(id) as any;
@@ -245,6 +247,198 @@ router.post('/:id/reviews', (req, res) => {
     console.error('Add review error:', error);
     res.status(500).json({ error: 'Server error' });
   }
+});
+
+// Delete review (admin or claimed manager only)
+router.delete('/reviews/:reviewId', authenticateToken, (req: AuthRequest, res) => {
+  const { reviewId } = req.params;
+  const user = req.user!;
+
+  try {
+    // Get the review and associated manager
+    const review = db.prepare(`
+      SELECT r.*, m.claimed_by 
+      FROM reviews r 
+      JOIN managers m ON r.manager_id = m.id 
+      WHERE r.id = ?
+    `).get(reviewId) as any;
+
+    if (!review) {
+      return res.status(404).json({ error: 'Review not found' });
+    }
+
+    // Check if user has permission (admin or claimed manager)
+    if (user.role !== 'admin' && review.claimed_by !== user.id) {
+      return res.status(403).json({ error: 'Not authorized to delete this review' });
+    }
+
+    // Delete the review
+    db.prepare('DELETE FROM reviews WHERE id = ?').run(reviewId);
+
+    // Update manager rating
+    const avgRating = db.prepare(
+      'SELECT AVG(rating) as avg FROM reviews WHERE manager_id = ?'
+    ).get(review.manager_id) as any;
+
+    const reviewCount = db.prepare(
+      'SELECT COUNT(*) as count FROM reviews WHERE manager_id = ?'
+    ).get(review.manager_id) as any;
+
+    db.prepare('UPDATE managers SET rating = ?, review_count = ? WHERE id = ?')
+      .run(Math.round((avgRating?.avg || 0) * 10) / 10, reviewCount?.count || 0, review.manager_id);
+
+    res.json({ message: 'Review deleted successfully' });
+  } catch (error) {
+    console.error('Delete review error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Submit claim listing request (public)
+router.post('/claim', async (req, res) => {
+  const {
+    managerId,
+    companyName,
+    website,
+    yearFounded,
+    teamSize,
+    fullName,
+    jobTitle,
+    email,
+    phone,
+    password,
+    howDidYouHear,
+    message
+  } = req.body;
+
+  // Validation
+  if (!companyName || !website || !fullName || !email || !phone || !password) {
+    return res.status(400).json({ error: 'Required fields missing' });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+
+  try {
+    // Check if email already exists
+    const existingUser = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    if (existingUser) {
+      return res.status(409).json({ error: 'An account with this email already exists' });
+    }
+
+    // If claiming existing manager, check if already claimed
+    if (managerId) {
+      const manager = db.prepare('SELECT * FROM managers WHERE id = ?').get(managerId) as any;
+      if (!manager) {
+        return res.status(404).json({ error: 'Manager not found' });
+      }
+      if (manager.is_claimed) {
+        return res.status(409).json({ error: 'This listing has already been claimed' });
+      }
+    }
+
+    // Create user account
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    const userResult = db.prepare(
+      'INSERT INTO users (email, password, role, name) VALUES (?, ?, ?, ?)'
+    ).run(email, hashedPassword, 'manager', fullName);
+
+    const userId = userResult.lastInsertRowid as number;
+
+    let finalManagerId = managerId;
+
+    // If new company, create manager record
+    if (!managerId) {
+      const slug = companyName.toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+
+      const managerResult = db.prepare(`
+        INSERT INTO managers (name, slug, description, website, founded_year, is_claimed, claimed_by, is_active)
+        VALUES (?, ?, ?, ?, ?, 1, ?, 1)
+      `).run(
+        companyName,
+        slug,
+        `${companyName} is a property management company in Dubai.`,
+        website,
+        yearFounded || null,
+        userId
+      );
+
+      finalManagerId = managerResult.lastInsertRowid;
+    } else {
+      // Update existing manager as claimed
+      db.prepare('UPDATE managers SET is_claimed = 1, claimed_by = ? WHERE id = ?')
+        .run(userId, managerId);
+    }
+
+    // Store claim details for admin review
+    const claimId = `claim_${Date.now()}_${userId}`;
+    pendingClaims.set(claimId, {
+      id: claimId,
+      userId,
+      managerId: finalManagerId,
+      companyName,
+      website,
+      yearFounded,
+      teamSize,
+      fullName,
+      jobTitle,
+      email,
+      phone,
+      howDidYouHear,
+      message,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    });
+
+    console.log(`New claim submitted: ${claimId} for ${companyName}`);
+
+    res.status(201).json({
+      message: 'Claim submitted successfully',
+      claimId,
+      user: {
+        id: userId,
+        email,
+        name: fullName,
+        role: 'manager'
+      }
+    });
+  } catch (error) {
+    console.error('Claim submission error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get pending claims (admin only)
+router.get('/claims/pending', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
+  const claims = Array.from(pendingClaims.values()).filter(c => c.status === 'pending');
+  res.json(claims);
+});
+
+// Approve/reject claim (admin only)
+router.post('/claims/:claimId/review', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
+  const { claimId } = req.params;
+  const { status, notes } = req.body;
+
+  if (!['approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
+  const claim = pendingClaims.get(claimId);
+  if (!claim) {
+    return res.status(404).json({ error: 'Claim not found' });
+  }
+
+  claim.status = status;
+  claim.reviewedAt = new Date().toISOString();
+  claim.reviewedBy = req.user!.id;
+  claim.notes = notes;
+
+  pendingClaims.set(claimId, claim);
+
+  res.json({ message: `Claim ${status}`, claim });
 });
 
 export default router;

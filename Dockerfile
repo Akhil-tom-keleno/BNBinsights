@@ -9,8 +9,14 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
+# Improve npm network resilience
+ENV npm_config_fetch_retries=5 \
+  npm_config_fetch_retry_mintimeout=20000 \
+  npm_config_fetch_retry_maxtimeout=120000 \
+  npm_config_registry=https://registry.npmjs.org/
+
 # Install all dependencies (including devDependencies for build)
-RUN npm ci
+RUN npm ci --no-audit --prefer-offline
 
 # Copy source code
 COPY . .
@@ -30,7 +36,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install only production dependencies
-RUN npm ci --only=production
+RUN npm ci --only=production --no-audit --prefer-offline
 
 # Copy built frontend from builder stage
 COPY --from=builder /app/dist ./dist

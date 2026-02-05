@@ -60,7 +60,7 @@ router.get('/:slug', (req, res) => {
 });
 
 // Create location (admin only)
-router.post('/', authenticateToken, requireAdmin, (req, res) => {
+router.post('/', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
   const {
     name,
     slug,
@@ -95,7 +95,7 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
 });
 
 // Update location (admin only)
-router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
   const { id } = req.params;
 
   const updates: string[] = [];
@@ -126,7 +126,7 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
 });
 
 // Delete location (admin only)
-router.delete('/:id', authenticateToken, requireAdmin, (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
   const { id } = req.params;
 
   try {

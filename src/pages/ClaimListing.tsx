@@ -4,7 +4,7 @@ import { ArrowLeft, Building2, User, Mail, Phone, Lock, CheckCircle, AlertCircle
 import Navigation from '@/sections/Navigation';
 import SimpleFooter from '@/sections/SimpleFooter';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 interface Manager {
   id: number;

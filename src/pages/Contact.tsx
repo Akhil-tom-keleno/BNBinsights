@@ -4,7 +4,7 @@ import { Mail, Phone, MapPin, Send, CheckCircle, MessageSquare, Building2, Clock
 import Navigation from '@/sections/Navigation';
 import ClosingFooter from '@/sections/ClosingFooter';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export default function Contact() {
   const [formData, setFormData] = useState({

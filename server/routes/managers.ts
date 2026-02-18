@@ -52,6 +52,12 @@ router.get('/', (req, res) => {
 // Get single manager by slug (public)
 router.get('/:slug', (req, res) => {
   const { slug } = req.params;
+  const { sort = 'newest' } = req.query;
+
+  let orderBy = 'created_at DESC';
+  if (sort === 'highest') orderBy = 'rating DESC, created_at DESC';
+  if (sort === 'lowest') orderBy = 'rating ASC, created_at DESC';
+  if (sort === 'verified') orderBy = 'is_verified_owner DESC, created_at DESC';
 
   try {
     const manager = db.prepare(`
@@ -65,15 +71,54 @@ router.get('/:slug', (req, res) => {
       return res.status(404).json({ error: 'Manager not found' });
     }
 
-    // Get reviews
-    const reviews = db.prepare(
-      'SELECT * FROM reviews WHERE manager_id = ? ORDER BY created_at DESC'
-    ).all(manager.id);
+    // Get only approved reviews
+    const reviews = db.prepare(`
+      SELECT * FROM reviews 
+      WHERE manager_id = ? AND status = 'approved'
+      ORDER BY ${orderBy}
+    `).all(manager.id);
+
+    // Calculate weighted overall score from sub-metrics
+    const metrics = db.prepare(`
+      SELECT 
+        AVG(booking_performance) as avg_booking,
+        AVG(property_care) as avg_property,
+        AVG(guest_satisfaction) as avg_guest,
+        AVG(communication) as avg_communication,
+        AVG(financial_transparency) as avg_financial,
+        COUNT(CASE WHEN would_recommend = 1 THEN 1 END) as recommend_count,
+        COUNT(*) as total_reviews
+      FROM reviews 
+      WHERE manager_id = ? AND status = 'approved'
+    `).get(manager.id) as any;
+
+    const weightedScore = metrics?.total_reviews > 0
+      ? (
+          (metrics.avg_booking || 0) * 0.40 +
+          (metrics.avg_property || 0) * 0.20 +
+          (metrics.avg_guest || 0) * 0.20 +
+          (metrics.avg_communication || 0) * 0.15 +
+          (metrics.avg_financial || 0) * 0.05
+        )
+      : 0;
 
     res.json({
       ...manager,
       services: manager.services ? JSON.parse(manager.services) : [],
-      reviews
+      social_links: manager.social_links ? JSON.parse(manager.social_links) : {},
+      reviews,
+      review_metrics: {
+        overall_score: Math.round(weightedScore * 10) / 10,
+        booking_performance: Math.round(metrics?.avg_booking * 10) / 10 || 0,
+        property_care: Math.round(metrics?.avg_property * 10) / 10 || 0,
+        guest_satisfaction: Math.round(metrics?.avg_guest * 10) / 10 || 0,
+        communication: Math.round(metrics?.avg_communication * 10) / 10 || 0,
+        financial_transparency: Math.round(metrics?.avg_financial * 10) / 10 || 0,
+        would_recommend_percentage: metrics?.total_reviews > 0
+          ? Math.round((metrics.recommend_count / metrics.total_reviews) * 100)
+          : 0,
+        total_reviews: metrics?.total_reviews || 0
+      }
     });
   } catch (error) {
     console.error('Get manager error:', error);
@@ -141,18 +186,18 @@ router.put('/:id', authenticateToken, (req: AuthRequest, res) => {
   const updates: string[] = [];
   const values: any[] = [];
 
-  const allowedFields = ['name', 'description', 'address', 'phone', 'email', 'website', 'logo_url', 'cover_image_url', 'services'];
+  const allowedFields = ['name', 'description', 'address', 'phone', 'email', 'website', 'logo_url', 'cover_image_url', 'services', 'social_links', 'listings_count'];
   
   allowedFields.forEach(field => {
     if (req.body[field] !== undefined) {
       updates.push(`${field} = ?`);
-      values.push(field === 'services' ? JSON.stringify(req.body[field]) : req.body[field]);
+      values.push((field === 'services' || field === 'social_links') ? JSON.stringify(req.body[field]) : req.body[field]);
     }
   });
 
   // Only admin can update these fields
   if (user.role === 'admin') {
-    ['location_id', 'founded_year', 'is_featured', 'is_active', 'slug'].forEach(field => {
+    ['location_id', 'founded_year', 'is_featured', 'is_active', 'is_verified', 'slug'].forEach(field => {
       if (req.body[field] !== undefined) {
         updates.push(`${field} = ?`);
         values.push(req.body[field]);
@@ -212,10 +257,24 @@ router.post('/:id/claim', authenticateToken, requireManager, (req: AuthRequest, 
   }
 });
 
-// Add review (public)
+// Add review (public) with comprehensive metrics
 router.post('/:id/reviews', (req, res) => {
   const { id } = req.params;
-  const { user_name, rating, comment } = req.body;
+  const {
+    user_name,
+    email,
+    is_verified_owner,
+    rating,
+    comment,
+    booking_performance,
+    property_care,
+    guest_satisfaction,
+    communication,
+    financial_transparency,
+    would_recommend,
+    property_address,
+    stay_duration
+  } = req.body;
 
   if (!user_name || !rating || rating < 1 || rating > 5) {
     return res.status(400).json({ error: 'Name and rating (1-5) required' });
@@ -227,24 +286,228 @@ router.post('/:id/reviews', (req, res) => {
       return res.status(404).json({ error: 'Manager not found' });
     }
 
-    db.prepare('INSERT INTO reviews (manager_id, user_name, rating, comment) VALUES (?, ?, ?, ?)')
-      .run(id, user_name, rating, comment);
+    db.prepare(`
+      INSERT INTO reviews (
+        manager_id, user_name, email, is_verified_owner, rating, comment,
+        booking_performance, property_care, guest_satisfaction, communication, financial_transparency,
+        would_recommend, property_address, stay_duration, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+    `).run(
+      id,
+      user_name,
+      email || null,
+      is_verified_owner ? 1 : 0,
+      rating,
+      comment,
+      booking_performance || null,
+      property_care || null,
+      guest_satisfaction || null,
+      communication || null,
+      financial_transparency || null,
+      would_recommend ? 1 : 0,
+      property_address || null,
+      stay_duration || null
+    );
 
-    // Update manager rating
-    const avgRating = db.prepare(
-      'SELECT AVG(rating) as avg FROM reviews WHERE manager_id = ?'
-    ).get(id) as any;
-
-    const reviewCount = db.prepare(
-      'SELECT COUNT(*) as count FROM reviews WHERE manager_id = ?'
-    ).get(id) as any;
-
-    db.prepare('UPDATE managers SET rating = ?, review_count = ? WHERE id = ?')
-      .run(Math.round(avgRating.avg * 10) / 10, reviewCount.count, id);
-
-    res.status(201).json({ message: 'Review added successfully' });
+    res.status(201).json({ message: 'Review submitted successfully and pending approval' });
   } catch (error) {
     console.error('Add review error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get reviews for a manager (public - only approved reviews)
+router.get('/:id/reviews', (req, res) => {
+  const { id } = req.params;
+  const { sort = 'newest' } = req.query;
+
+  let orderBy = 'created_at DESC';
+  if (sort === 'highest') orderBy = 'rating DESC, created_at DESC';
+  if (sort === 'lowest') orderBy = 'rating ASC, created_at DESC';
+  if (sort === 'verified') orderBy = 'is_verified_owner DESC, created_at DESC';
+
+  try {
+    const reviews = db.prepare(`
+      SELECT * FROM reviews 
+      WHERE manager_id = ? AND status = 'approved'
+      ORDER BY ${orderBy}
+    `).all(id);
+
+    res.json(reviews);
+  } catch (error) {
+    console.error('Get reviews error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Approve/reject review (manager or admin)
+router.put('/reviews/:reviewId/status', authenticateToken, (req: AuthRequest, res) => {
+  const { reviewId } = req.params;
+  const { status } = req.body;
+  const user = req.user!;
+
+  if (!['approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
+  try {
+    const review = db.prepare(`
+      SELECT r.*, m.claimed_by 
+      FROM reviews r 
+      JOIN managers m ON r.manager_id = m.id 
+      WHERE r.id = ?
+    `).get(reviewId) as any;
+
+    if (!review) {
+      return res.status(404).json({ error: 'Review not found' });
+    }
+
+    // Check permission (admin or claimed manager)
+    if (user.role !== 'admin' && review.claimed_by !== user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    db.prepare('UPDATE reviews SET status = ? WHERE id = ?').run(status, reviewId);
+
+    // Update manager rating if approving
+    if (status === 'approved') {
+      const avgRating = db.prepare(
+        'SELECT AVG(rating) as avg FROM reviews WHERE manager_id = ? AND status = ?'
+      ).get(review.manager_id, 'approved') as any;
+
+      const reviewCount = db.prepare(
+        'SELECT COUNT(*) as count FROM reviews WHERE manager_id = ? AND status = ?'
+      ).get(review.manager_id, 'approved') as any;
+
+      db.prepare('UPDATE managers SET rating = ?, review_count = ? WHERE id = ?')
+        .run(Math.round((avgRating?.avg || 0) * 10) / 10, reviewCount?.count || 0, review.manager_id);
+    }
+
+    res.json({ message: `Review ${status}` });
+  } catch (error) {
+    console.error('Update review status error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Respond to review (manager or admin)
+router.put('/reviews/:reviewId/response', authenticateToken, (req: AuthRequest, res) => {
+  const { reviewId } = req.params;
+  const { response } = req.body;
+  const user = req.user!;
+
+  try {
+    const review = db.prepare(`
+      SELECT r.*, m.claimed_by 
+      FROM reviews r 
+      JOIN managers m ON r.manager_id = m.id 
+      WHERE r.id = ?
+    `).get(reviewId) as any;
+
+    if (!review) {
+      return res.status(404).json({ error: 'Review not found' });
+    }
+
+    // Check permission (admin or claimed manager)
+    if (user.role !== 'admin' && review.claimed_by !== user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    db.prepare(`
+      UPDATE reviews SET manager_response = ?, manager_responded_at = CURRENT_TIMESTAMP WHERE id = ?
+    `).run(response, reviewId);
+
+    res.json({ message: 'Response added successfully' });
+  } catch (error) {
+    console.error('Add response error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Flag review for dispute
+router.put('/reviews/:reviewId/flag', authenticateToken, (req: AuthRequest, res) => {
+  const { reviewId } = req.params;
+  const { reason } = req.body;
+  const user = req.user!;
+
+  try {
+    const review = db.prepare(`
+      SELECT r.*, m.claimed_by 
+      FROM reviews r 
+      JOIN managers m ON r.manager_id = m.id 
+      WHERE r.id = ?
+    `).get(reviewId) as any;
+
+    if (!review) {
+      return res.status(404).json({ error: 'Review not found' });
+    }
+
+    // Check permission (admin or claimed manager)
+    if (user.role !== 'admin' && review.claimed_by !== user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    db.prepare('UPDATE reviews SET is_flagged = 1, flag_reason = ? WHERE id = ?')
+      .run(reason || 'Disputed by manager', reviewId);
+
+    res.json({ message: 'Review flagged for review' });
+  } catch (error) {
+    console.error('Flag review error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get manager's reviews with pending status (for manager dashboard)
+router.get('/dashboard/reviews', authenticateToken, requireManager, (req: AuthRequest, res) => {
+  const userId = req.user!.id;
+
+  try {
+    const manager = db.prepare('SELECT * FROM managers WHERE claimed_by = ?').get(userId) as any;
+    if (!manager) {
+      return res.status(404).json({ error: 'No manager found for this user' });
+    }
+
+    const reviews = db.prepare(`
+      SELECT * FROM reviews 
+      WHERE manager_id = ?
+      ORDER BY 
+        CASE status 
+          WHEN 'pending' THEN 0 
+          WHEN 'approved' THEN 1 
+          ELSE 2 
+        END,
+        created_at DESC
+    `).all(manager.id);
+
+    // Calculate aggregate metrics
+    const metrics = db.prepare(`
+      SELECT 
+        AVG(booking_performance) as avg_booking,
+        AVG(property_care) as avg_property,
+        AVG(guest_satisfaction) as avg_guest,
+        AVG(communication) as avg_communication,
+        AVG(financial_transparency) as avg_financial,
+        COUNT(CASE WHEN would_recommend = 1 THEN 1 END) as recommend_count,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END) as total_approved
+      FROM reviews 
+      WHERE manager_id = ? AND status = 'approved'
+    `).get(manager.id) as any;
+
+    res.json({
+      reviews,
+      metrics: {
+        booking_performance: Math.round(metrics?.avg_booking * 10) / 10 || 0,
+        property_care: Math.round(metrics?.avg_property * 10) / 10 || 0,
+        guest_satisfaction: Math.round(metrics?.avg_guest * 10) / 10 || 0,
+        communication: Math.round(metrics?.avg_communication * 10) / 10 || 0,
+        financial_transparency: Math.round(metrics?.avg_financial * 10) / 10 || 0,
+        would_recommend_percentage: metrics?.total_approved > 0
+          ? Math.round((metrics.recommend_count / metrics.total_approved) * 100)
+          : 0
+      }
+    });
+  } catch (error) {
+    console.error('Get dashboard reviews error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

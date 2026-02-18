@@ -1,20 +1,38 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, Shield, User as UserIcon } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, User, Shield, X, Mail } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
-interface User {
+interface UserData {
   id: number;
-  name: string;
   email: string;
+  name: string;
   role: 'admin' | 'manager';
   created_at: string;
 }
 
+interface UserFormData {
+  email: string;
+  name: string;
+  role: 'admin' | 'manager';
+  password: string;
+}
+
+const initialFormData: UserFormData = {
+  email: '',
+  name: '',
+  role: 'manager',
+  password: ''
+};
+
 export default function AdminUsers() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [formData, setFormData] = useState<UserFormData>(initialFormData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -23,24 +41,84 @@ export default function AdminUsers() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/auth/users`, {
+      const response = await fetch(`${API_URL}/admin/users`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
-      if (!response.ok) {
-        // Fallback: empty users list
-        setUsers([]);
-        setIsLoading(false);
-        return;
-      }
-      
       const data = await response.json();
       setUsers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch users:', error);
-      setUsers([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const openCreateModal = () => {
+    setEditingUser(null);
+    setFormData(initialFormData);
+    setShowModal(true);
+  };
+
+  const openEditModal = (user: UserData) => {
+    setEditingUser(user);
+    setFormData({
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      password: ''
+    });
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingUser(null);
+    setFormData(initialFormData);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const url = editingUser 
+        ? `${API_URL}/admin/users/${editingUser.id}`
+        : `${API_URL}/admin/users`;
+      
+      const method = editingUser ? 'PUT' : 'POST';
+      
+      const body: any = {
+        email: formData.email,
+        name: formData.name,
+        role: formData.role
+      };
+      
+      if (!editingUser || formData.password) {
+        body.password = formData.password;
+      }
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (response.ok) {
+        closeModal();
+        fetchUsers();
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to save user');
+      }
+    } catch (error) {
+      console.error('Failed to save user:', error);
+      alert('Failed to save user');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -49,7 +127,7 @@ export default function AdminUsers() {
 
     try {
       const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/auth/users/${id}`, {
+      await fetch(`${API_URL}/admin/users/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -60,8 +138,9 @@ export default function AdminUsers() {
   };
 
   const filteredUsers = users.filter(u => 
-    u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.role.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (isLoading) {
@@ -80,7 +159,10 @@ export default function AdminUsers() {
           <h2 className="text-2xl font-bold text-[#0B0F17]">Users</h2>
           <p className="text-[#6B7280]">Manage admin and manager accounts</p>
         </div>
-        <button className="btn-gold px-6 py-3 rounded-xl font-medium flex items-center gap-2">
+        <button 
+          onClick={openCreateModal}
+          className="btn-gold px-6 py-3 rounded-xl font-medium flex items-center gap-2"
+        >
           <Plus size={20} />
           Add User
         </button>
@@ -108,7 +190,7 @@ export default function AdminUsers() {
               <tr>
                 <th className="text-left px-6 py-4 font-semibold text-[#0B0F17]">User</th>
                 <th className="text-left px-6 py-4 font-semibold text-[#0B0F17]">Role</th>
-                <th className="text-left px-6 py-4 font-semibold text-[#0B0F17]">Joined</th>
+                <th className="text-left px-6 py-4 font-semibold text-[#0B0F17]">Created</th>
                 <th className="text-left px-6 py-4 font-semibold text-[#0B0F17]">Actions</th>
               </tr>
             </thead>
@@ -123,12 +205,15 @@ export default function AdminUsers() {
                         {user.role === 'admin' ? (
                           <Shield className="text-purple-600" size={20} />
                         ) : (
-                          <UserIcon className="text-blue-600" size={20} />
+                          <User className="text-blue-600" size={20} />
                         )}
                       </div>
                       <div>
                         <p className="font-medium text-[#0B0F17]">{user.name}</p>
-                        <p className="text-sm text-[#6B7280]">{user.email}</p>
+                        <p className="text-sm text-[#6B7280] flex items-center gap-1">
+                          <Mail size={12} />
+                          {user.email}
+                        </p>
                       </div>
                     </div>
                   </td>
@@ -142,13 +227,14 @@ export default function AdminUsers() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-[#6B7280]">
-                    {user.created_at 
-                      ? new Date(user.created_at).toLocaleDateString() 
-                      : '-'}
+                    {new Date(user.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <button className="p-2 hover:bg-[#F6F7F9] rounded-lg text-blue-600">
+                      <button 
+                        onClick={() => openEditModal(user)}
+                        className="p-2 hover:bg-[#F6F7F9] rounded-lg text-blue-600"
+                      >
                         <Edit2 size={18} />
                       </button>
                       <button 
@@ -164,7 +250,6 @@ export default function AdminUsers() {
             </tbody>
           </table>
         </div>
-        
         {filteredUsers.length === 0 && (
           <div className="text-center py-12">
             <p className="text-[#6B7280]">No users found</p>
@@ -172,12 +257,106 @@ export default function AdminUsers() {
         )}
       </div>
 
-      {/* Demo Notice */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <p className="text-blue-700 text-sm">
-          <strong>Note:</strong> User management is in development. Full CRUD operations will be available in the next update.
-        </p>
-      </div>
+      {/* Create/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-[#0B0F17]/10 flex items-center justify-between sticky top-0 bg-white">
+              <h3 className="text-xl font-bold text-[#0B0F17]">
+                {editingUser ? 'Edit User' : 'Add New User'}
+              </h3>
+              <button 
+                onClick={closeModal}
+                className="p-2 hover:bg-[#F6F7F9] rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium text-[#0B0F17] mb-2">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="w-full px-4 py-3 rounded-xl border border-[#0B0F17]/10 focus:border-[#D4A23F] focus:outline-none"
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-[#0B0F17] mb-2">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="w-full px-4 py-3 rounded-xl border border-[#0B0F17]/10 focus:border-[#D4A23F] focus:outline-none"
+                  placeholder="user@example.com"
+                  required
+                />
+              </div>
+
+              {/* Role */}
+              <div>
+                <label className="block text-sm font-medium text-[#0B0F17] mb-2">
+                  Role *
+                </label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({...formData, role: e.target.value as 'admin' | 'manager'})}
+                  className="w-full px-4 py-3 rounded-xl border border-[#0B0F17]/10 focus:border-[#D4A23F] focus:outline-none"
+                  required
+                >
+                  <option value="manager">Manager</option>
+                  <option value="admin">Administrator</option>
+                </select>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-medium text-[#0B0F17] mb-2">
+                  Password {editingUser && '(leave blank to keep current)'}
+                </label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  className="w-full px-4 py-3 rounded-xl border border-[#0B0F17]/10 focus:border-[#D4A23F] focus:outline-none"
+                  placeholder={editingUser ? '••••••••' : 'Min 6 characters'}
+                  required={!editingUser}
+                  minLength={6}
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-4 pt-4 border-t border-[#0B0F17]/10">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="flex-1 px-6 py-3 border-2 border-[#0B0F17]/10 rounded-xl font-medium hover:border-[#D4A23F] hover:text-[#D4A23F] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 btn-gold px-6 py-3 rounded-xl font-medium disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Saving...' : (editingUser ? 'Update User' : 'Create User')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

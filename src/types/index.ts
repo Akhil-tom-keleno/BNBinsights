@@ -39,6 +39,7 @@ export interface Manager {
   is_claimed: boolean;
   is_featured: boolean;
   is_active: boolean;
+  is_verified?: boolean;
   reviews?: Review[];
 }
 

@@ -101,7 +101,7 @@ router.put('/:id', authenticateToken, requireAdmin, (req: AuthRequest, res) => {
   const updates: string[] = [];
   const values: any[] = [];
 
-  const allowedFields = ['name', 'slug', 'description', 'image_url', 'properties_count', 'avg_daily_rate', 'occupancy_rate', 'is_featured'];
+  const allowedFields = ['name', 'slug', 'description', 'image_url', 'properties_count', 'avg_daily_rate', 'occupancy_rate', 'is_featured', 'seo_title', 'seo_description', 'seo_keywords'];
   
   allowedFields.forEach(field => {
     if (req.body[field] !== undefined) {

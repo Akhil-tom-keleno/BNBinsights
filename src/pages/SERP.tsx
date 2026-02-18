@@ -222,7 +222,9 @@ export default function SERP() {
                         ))}
                       </div>
                       <span className="text-sm font-semibold text-[#0B0F17]">{manager.rating}</span>
-                      <span className="text-sm text-[#6B7280]">({manager.review_count} reviews)</span>
+                      {manager.review_count > 0 && (
+                        <span className="text-sm text-[#6B7280]">({manager.review_count} reviews)</span>
+                      )}
                     </div>
                     
                     {/* Services */}

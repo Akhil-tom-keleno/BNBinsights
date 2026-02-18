@@ -43,6 +43,9 @@ export function initDatabase() {
       avg_daily_rate INTEGER DEFAULT 0,
       occupancy_rate INTEGER DEFAULT 0,
       is_featured BOOLEAN DEFAULT 0,
+      seo_title TEXT,
+      seo_description TEXT,
+      seo_keywords TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -74,6 +77,7 @@ export function initDatabase() {
       claimed_by INTEGER,
       is_featured BOOLEAN DEFAULT 0,
       is_active BOOLEAN DEFAULT 1,
+      is_verified BOOLEAN DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (location_id) REFERENCES locations(id),
@@ -101,14 +105,35 @@ export function initDatabase() {
     )
   `);
 
-  // Reviews table
+  // Reviews table with comprehensive metrics and moderation
   db.exec(`
     CREATE TABLE IF NOT EXISTS reviews (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       manager_id INTEGER NOT NULL,
       user_name TEXT NOT NULL,
+      email TEXT,
+      is_verified_owner BOOLEAN DEFAULT 0,
       rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
       comment TEXT,
+      -- Sub-metrics (1-5 scale)
+      booking_performance INTEGER CHECK(booking_performance >= 1 AND booking_performance <= 5),
+      property_care INTEGER CHECK(property_care >= 1 AND property_care <= 5),
+      guest_satisfaction INTEGER CHECK(guest_satisfaction >= 1 AND guest_satisfaction <= 5),
+      communication INTEGER CHECK(communication >= 1 AND communication <= 5),
+      financial_transparency INTEGER CHECK(financial_transparency >= 1 AND financial_transparency <= 5),
+      -- Review metadata
+      would_recommend BOOLEAN DEFAULT 0,
+      property_address TEXT,
+      stay_duration TEXT,
+      -- Moderation
+      status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+      manager_response TEXT,
+      manager_responded_at DATETIME,
+      is_flagged BOOLEAN DEFAULT 0,
+      flag_reason TEXT,
+      -- Edit tracking
+      edited_at DATETIME,
+      original_comment TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (manager_id) REFERENCES managers(id) ON DELETE CASCADE
     )

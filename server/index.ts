@@ -10,6 +10,7 @@ import managerRoutes from './routes/managers.js';
 import locationRoutes from './routes/locations.js';
 import blogRoutes from './routes/blog.js';
 import contentRoutes from './routes/content.js';
+import adminRoutes from './routes/admin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +32,7 @@ app.use('/api/managers', managerRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/content', contentRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

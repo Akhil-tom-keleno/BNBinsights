@@ -140,8 +140,11 @@ export function initDatabase() {
   `);
 
   // Lightweight migration for existing databases that lack newer review columns
+  console.log('[DB Migration] Checking reviews table schema...');
   const reviewColumns = db.prepare('PRAGMA table_info(reviews)').all() as Array<{ name: string }>;
   const reviewColumnSet = new Set(reviewColumns.map(col => col.name));
+  console.log('[DB Migration] Existing columns:', Array.from(reviewColumnSet).join(', '));
+
   const reviewColumnAdds: Array<{ name: string; sql: string }> = [
     { name: 'email', sql: "ALTER TABLE reviews ADD COLUMN email TEXT" },
     { name: 'is_verified_owner', sql: "ALTER TABLE reviews ADD COLUMN is_verified_owner INTEGER DEFAULT 0" },
@@ -162,11 +165,23 @@ export function initDatabase() {
     { name: 'original_comment', sql: "ALTER TABLE reviews ADD COLUMN original_comment TEXT" }
   ];
 
+  let migrationsApplied = 0;
   reviewColumnAdds.forEach(({ name, sql }) => {
     if (!reviewColumnSet.has(name)) {
-      db.exec(sql);
+      try {
+        db.exec(sql);
+        console.log(`[DB Migration] Added column: ${name}`);
+        migrationsApplied++;
+      } catch (err) {
+        console.error(`[DB Migration] Failed to add column ${name}:`, err);
+      }
     }
   });
+  if (migrationsApplied === 0) {
+    console.log('[DB Migration] reviews table schema is up to date.');
+  } else {
+    console.log(`[DB Migration] Applied ${migrationsApplied} migration(s) to reviews table.`);
+  }
 
   // Page Content table (for About page, etc.)
   db.exec(`

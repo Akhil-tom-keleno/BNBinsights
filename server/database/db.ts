@@ -139,6 +139,35 @@ export function initDatabase() {
     )
   `);
 
+  // Lightweight migration for existing databases that lack newer review columns
+  const reviewColumns = db.prepare('PRAGMA table_info(reviews)').all() as Array<{ name: string }>;
+  const reviewColumnSet = new Set(reviewColumns.map(col => col.name));
+  const reviewColumnAdds: Array<{ name: string; sql: string }> = [
+    { name: 'email', sql: "ALTER TABLE reviews ADD COLUMN email TEXT" },
+    { name: 'is_verified_owner', sql: "ALTER TABLE reviews ADD COLUMN is_verified_owner INTEGER DEFAULT 0" },
+    { name: 'booking_performance', sql: "ALTER TABLE reviews ADD COLUMN booking_performance INTEGER" },
+    { name: 'property_care', sql: "ALTER TABLE reviews ADD COLUMN property_care INTEGER" },
+    { name: 'guest_satisfaction', sql: "ALTER TABLE reviews ADD COLUMN guest_satisfaction INTEGER" },
+    { name: 'communication', sql: "ALTER TABLE reviews ADD COLUMN communication INTEGER" },
+    { name: 'financial_transparency', sql: "ALTER TABLE reviews ADD COLUMN financial_transparency INTEGER" },
+    { name: 'would_recommend', sql: "ALTER TABLE reviews ADD COLUMN would_recommend INTEGER DEFAULT 0" },
+    { name: 'property_address', sql: "ALTER TABLE reviews ADD COLUMN property_address TEXT" },
+    { name: 'stay_duration', sql: "ALTER TABLE reviews ADD COLUMN stay_duration TEXT" },
+    { name: 'status', sql: "ALTER TABLE reviews ADD COLUMN status TEXT DEFAULT 'pending'" },
+    { name: 'manager_response', sql: "ALTER TABLE reviews ADD COLUMN manager_response TEXT" },
+    { name: 'manager_responded_at', sql: "ALTER TABLE reviews ADD COLUMN manager_responded_at DATETIME" },
+    { name: 'is_flagged', sql: "ALTER TABLE reviews ADD COLUMN is_flagged INTEGER DEFAULT 0" },
+    { name: 'flag_reason', sql: "ALTER TABLE reviews ADD COLUMN flag_reason TEXT" },
+    { name: 'edited_at', sql: "ALTER TABLE reviews ADD COLUMN edited_at DATETIME" },
+    { name: 'original_comment', sql: "ALTER TABLE reviews ADD COLUMN original_comment TEXT" }
+  ];
+
+  reviewColumnAdds.forEach(({ name, sql }) => {
+    if (!reviewColumnSet.has(name)) {
+      db.exec(sql);
+    }
+  });
+
   // Page Content table (for About page, etc.)
   db.exec(`
     CREATE TABLE IF NOT EXISTS page_content (
